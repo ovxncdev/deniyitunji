@@ -32,7 +32,10 @@ export async function POST(req: NextRequest) {
     const lastName = capitalize(nameParts[1] || 'User')
 
     const amount = PLAN_AMOUNTS[plan]
-    const redirectLink = `${process.env.NEXT_PUBLIC_BASE_URL}/proxysocket/success`
+
+    // Step 1: create payment with a temporary redirect
+    // We'll get the payment_id back and then include it in the payment_link we return
+    const tempRedirect = `${process.env.NEXT_PUBLIC_BASE_URL}/proxysocket/success`
 
     const res = await fetch(`${POCKETFI_BASE}/checkout/request`, {
       method: 'POST',
@@ -46,7 +49,7 @@ export async function POST(req: NextRequest) {
         phone: '08000000000',
         business_id: POCKETFI_BUSINESS_ID,
         email: email || 'customer@proxysocket.app',
-        redirect_link: redirectLink,
+        redirect_link: tempRedirect,
         amount: amount.toString(),
         description: PLAN_LABELS[plan],
       }),
@@ -59,7 +62,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Payment initiation failed', details: data }, { status: 500 })
     }
 
-    const paymentId = data?.data?.payment_id || data?.payment_id || null
+    const paymentId = data?.payment_id || data?.data?.payment_id || null
+
+    // Store email/name so we can send license key email later
     if (paymentId && email) {
       await db.collection('payment_meta').doc(paymentId).set({
         email,
@@ -70,7 +75,11 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    return NextResponse.json(data)
+    // Return payment_link + payment_id so the frontend can store it
+    return NextResponse.json({
+      payment_link: data.payment_link,
+      payment_id: paymentId,
+    })
   } catch (err) {
     console.error('Payment initiation error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

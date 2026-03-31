@@ -97,24 +97,24 @@
   <div class="hero">
     <p class="hero-label">Key Recovery</p>
     <h1>Find your license key</h1>
-    <p>Enter the email you used when you paid — we'll show all license keys linked to it.</p>
+    <p>Enter your email or Pocketfi payment reference — we'll find your license key.</p>
   </div>
 
   <!-- Lookup form -->
   <div id="lookup-section">
     <div class="lookup-box">
-      <p class="lookup-label">Enter your payment email</p>
-      <input type="email" id="email-input" placeholder="your@email.com" onkeydown="if(event.key==='Enter')lookup()">
+      <p class="lookup-label">Email address or payment reference</p>
+      <input type="text" id="email-input" placeholder="your@email.com or PFI|6029631498" onkeydown="if(event.key==='Enter')lookup()">
       <button class="btn-primary" id="lookup-btn" onclick="lookup()">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        Find my keys
+        Find my key
       </button>
       <p class="error-msg" id="error-msg"></p>
     </div>
 
     <div class="spinner-wrap" id="spinner">
       <div class="spinner"></div>
-      <p style="font-size:13px;color:var(--text-muted);">Looking up your keys...</p>
+      <p style="font-size:13px;color:var(--text-muted);">Looking up your key...</p>
     </div>
   </div>
 
@@ -132,12 +132,21 @@
 
 <script>
   async function lookup() {
-    const email = document.getElementById('email-input').value.trim()
+    const input = document.getElementById('email-input').value.trim()
     const errEl = document.getElementById('error-msg')
     errEl.style.display = 'none'
 
-    if (!email || !email.includes('@')) {
-      errEl.textContent = 'Please enter a valid email address'
+    if (!input) {
+      errEl.textContent = 'Please enter your email or payment reference'
+      errEl.style.display = 'block'
+      return
+    }
+
+    const isReference = input.startsWith('PFI|') || input.startsWith('PFI%7C')
+    const isEmail = input.includes('@')
+
+    if (!isReference && !isEmail) {
+      errEl.textContent = 'Enter a valid email or payment reference (e.g. PFI|6029631498)'
       errEl.style.display = 'block'
       return
     }
@@ -147,19 +156,33 @@
     document.getElementById('spinner').style.display = 'block'
 
     try {
-      const res = await fetch('/api/license/lookup?email=' + encodeURIComponent(email))
-      const data = await res.json()
+      let url, data
 
-      document.getElementById('spinner').style.display = 'none'
-
-      if (!res.ok) {
-        errEl.textContent = data.error || 'Something went wrong. Please try again.'
-        errEl.style.display = 'block'
-        btn.disabled = false
-        return
+      if (isReference) {
+        // Lookup by payment reference
+        const res = await fetch('/api/license/lookup?ref=' + encodeURIComponent(input))
+        data = await res.json()
+        document.getElementById('spinner').style.display = 'none'
+        if (!res.ok) {
+          errEl.textContent = data.error || 'Something went wrong. Please try again.'
+          errEl.style.display = 'block'
+          btn.disabled = false
+          return
+        }
+        showResults(data.licenses || [], input)
+      } else {
+        // Lookup by email
+        const res = await fetch('/api/license/lookup?email=' + encodeURIComponent(input))
+        data = await res.json()
+        document.getElementById('spinner').style.display = 'none'
+        if (!res.ok) {
+          errEl.textContent = data.error || 'Something went wrong. Please try again.'
+          errEl.style.display = 'block'
+          btn.disabled = false
+          return
+        }
+        showResults(data.licenses || [], input)
       }
-
-      showResults(data.licenses || [], email)
     } catch {
       document.getElementById('spinner').style.display = 'none'
       errEl.textContent = 'Network error. Please check your connection.'

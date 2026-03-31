@@ -365,11 +365,12 @@
         return
       }
 
-      const url = data?.payment_link || data?.data?.link || data?.link || data?.payment_url || data?.url
-      const paymentId = data?.payment_id || data?.data?.payment_id || null
+      const url = data?.payment_link
+      const paymentId = data?.payment_id
 
-      if (url) {
-        if (paymentId) localStorage.setItem('psk_payment_id', paymentId)
+      if (url && paymentId) {
+        // Store in sessionStorage as backup
+        sessionStorage.setItem('psk_payment_id', paymentId)
         window.location.href = url
       } else {
         goToStep('step-details')
