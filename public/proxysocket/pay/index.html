@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProxySocket — Get Pro Access</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #111318; --bg-card: #181c24; --bg-input: #1a1e28;
+    --accent: #5dcaa5; --accent-dim: rgba(93,202,165,0.12); --accent-border: rgba(93,202,165,0.35);
+    --border: rgba(255,255,255,0.08); --border-hover: rgba(255,255,255,0.14);
+    --text: #f0f0f0; --text-muted: rgba(255,255,255,0.45); --text-dim: rgba(255,255,255,0.25);
+    --red: #f87171; --green: #4ade80; --green-dim: rgba(74,222,128,0.12);
+    --radius: 14px; --radius-sm: 10px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Geist', system-ui, sans-serif; font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; min-height: 100vh; }
+  a { color: inherit; text-decoration: none; }
+
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border); }
+  .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; }
+  .nav-logo-icon { width: 32px; height: 32px; border-radius: 9px; background: var(--accent-dim); border: 1px solid var(--accent-border); display: flex; align-items: center; justify-content: center; }
+  .nav-logo-icon svg { width: 15px; height: 15px; stroke: var(--accent); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .nav-back { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 5px; transition: color .2s; }
+  .nav-back:hover { color: var(--text); }
+  .nav-back svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .container { max-width: 480px; margin: 0 auto; padding: 48px 24px 80px; }
+
+  .hero { text-align: center; margin-bottom: 36px; }
+  .hero-label { font-size: 11px; font-weight: 600; letter-spacing: 3px; color: var(--accent); text-transform: uppercase; margin-bottom: 10px; }
+  .hero h1 { font-size: 32px; font-weight: 700; letter-spacing: -.5px; margin-bottom: 10px; }
+  .hero p { font-size: 14px; color: var(--text-muted); line-height: 1.65; }
+
+  .features { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 36px; }
+  .feature-pill { font-size: 12px; color: var(--text-muted); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; display: flex; align-items: center; gap: 5px; }
+  .feature-pill svg { width: 11px; height: 11px; stroke: var(--accent); fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Steps */
+  .step { display: none; }
+  .step.active { display: block; animation: fadeUp .3s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  .step-label { font-size: 12px; color: var(--text-muted); text-align: center; margin-bottom: 18px; }
+  .back-btn { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text-muted); background: none; border: none; cursor: pointer; padding: 0; margin-bottom: 20px; transition: color .2s; }
+  .back-btn:hover { color: var(--text); }
+  .back-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Method cards */
+  .method-card { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-radius: var(--radius); border: 1px solid var(--accent-border); background: var(--accent-dim); margin-bottom: 12px; cursor: pointer; transition: background .15s; text-align: left; }
+  .method-card:hover { background: rgba(93,202,165,0.18); }
+  .method-card.disabled { border-color: var(--border); background: rgba(255,255,255,0.03); opacity: 0.5; cursor: not-allowed; }
+  .method-card-left h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+  .method-card-left p { font-size: 12px; color: var(--text-muted); }
+  .method-card-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 16px; }
+  .method-card-icon svg { width: 20px; height: 20px; stroke: var(--text); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .badge-pill { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-left: 8px; background: rgba(250,204,21,0.15); color: #facc15; border: 1px solid rgba(250,204,21,0.25); }
+
+  /* Country list */
+  .country-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: rgba(255,255,255,0.03); margin-bottom: 8px; cursor: pointer; transition: all .15s; text-align: left; font-size: 14px; color: var(--text-muted); }
+  .country-btn:hover { background: rgba(255,255,255,0.06); border-color: var(--border-hover); }
+  .country-btn.nigeria { border-color: var(--accent-border); background: var(--accent-dim); color: var(--text); font-weight: 500; }
+  .country-btn.nigeria:hover { background: rgba(93,202,165,0.18); }
+  .naira-tag { font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-dim); border: 1px solid var(--accent-border); padding: 3px 10px; border-radius: 999px; }
+
+  /* Plan cards */
+  .plan-card { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: rgba(255,255,255,0.03); margin-bottom: 10px; cursor: pointer; transition: all .15s; text-align: left; }
+  .plan-card:hover { background: rgba(255,255,255,0.06); }
+  .plan-card.selected { border-color: var(--accent-border); background: var(--accent-dim); }
+  .plan-card-left h4 { font-size: 14px; font-weight: 500; margin-bottom: 3px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .plan-card-left p { font-size: 12px; color: var(--text-muted); }
+  .plan-price { text-align: right; }
+  .plan-price .amount { font-size: 18px; font-weight: 700; color: var(--text); }
+  .plan-price .amount.selected { color: var(--accent); }
+  .plan-price .per { font-size: 11px; color: var(--text-muted); }
+  .plan-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .plan-badge.popular { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent-border); }
+  .plan-badge.save { background: var(--green-dim); color: var(--green); border: 1px solid rgba(74,222,128,0.25); }
+
+  /* Form */
+  .form-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  .input-wrap { flex: 1; }
+  input { width: 100%; padding: 13px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); color: var(--text); font-size: 14px; font-family: inherit; outline: none; transition: border-color .2s; }
+  input::placeholder { color: var(--text-dim); }
+  input:focus { border-color: var(--accent-border); }
+  .mb12 { margin-bottom: 12px; }
+
+  /* Order summary */
+  .order-summary { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid rgba(93,202,165,0.2); background: var(--accent-dim); margin-bottom: 24px; }
+  .order-summary span { font-size: 14px; color: var(--text-muted); }
+  .order-summary strong { font-size: 16px; font-weight: 600; color: var(--accent); }
+
+  /* Buttons */
+  .btn-primary { width: 100%; padding: 15px; background: var(--accent); color: #000; font-weight: 700; font-size: 15px; font-weight: 600; border: none; border-radius: var(--radius); cursor: pointer; transition: opacity .15s; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: inherit; }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+  .continue-btn { width: 100%; padding: 15px; background: var(--accent); color: #000; font-weight: 700; font-size: 15px; font-weight: 600; border: none; border-radius: var(--radius); cursor: pointer; transition: opacity .15s; font-family: inherit; margin-top: 8px; }
+  .continue-btn:hover { opacity: 0.88; }
+
+  .btn-note { text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 12px; }
+  .error-msg { color: var(--red); font-size: 13px; text-align: center; margin-bottom: 14px; }
+
+  /* Spinner */
+  .spinner-wrap { text-align: center; padding: 48px 0; }
+  .spinner { width: 44px; height: 44px; border: 2px solid rgba(93,202,165,0.15); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Redeem */
+  .redeem-box { margin-top: 40px; padding: 18px; border-radius: var(--radius); border: 1px solid var(--border); background: rgba(255,255,255,0.03); text-align: center; }
+  .redeem-box p { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .redeem-box a { font-size: 13px; color: var(--accent); }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/proxysocket" class="nav-logo">
+    <div class="nav-logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    </div>
+    ProxySocket
+  </a>
+  <a href="/proxysocket" class="nav-back">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    Back
+  </a>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <p class="hero-label">Web Purchase</p>
+    <h1>ProxySocket Pro</h1>
+    <p>Get a license key instantly after payment.<br>Enter it in the app to unlock premium.</p>
+  </div>
+
+  <div class="features">
+    <span class="feature-pill"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> All proxy locations</span>
+    <span class="feature-pill"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> 9proxy integration</span>
+    <span class="feature-pill"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Custom proxy support</span>
+    <span class="feature-pill"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Kill switch</span>
+  </div>
+
+  <!-- STEP 1: Method -->
+  <div class="step active" id="step-method">
+    <p class="step-label">How would you like to pay?</p>
+
+    <button class="method-card" onclick="goToStep('step-country')">
+      <div class="method-card-left">
+        <h3>Local Currency</h3>
+        <p>Pay in your local currency via bank transfer or card</p>
+      </div>
+      <div class="method-card-icon">
+        <svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+      </div>
+    </button>
+
+    <button class="method-card disabled" disabled>
+      <div class="method-card-left">
+        <h3>Cryptocurrency <span class="badge-pill">COMING SOON</span></h3>
+        <p>USDT, BTC, ETH and more</p>
+      </div>
+      <div class="method-card-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9 8h6a2 2 0 0 1 0 4H9zm0 4h7a2 2 0 0 1 0 4H9z"/><line x1="9" y1="8" x2="9" y2="16"/><line x1="12" y1="6" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="18"/></svg>
+      </div>
+    </button>
+
+    <div class="redeem-box">
+      <p>Already paid?</p>
+      <a href="/proxysocket/redeem">Redeem your license key &rarr;</a>
+    </div>
+  </div>
+
+  <!-- STEP 2: Country -->
+  <div class="step" id="step-country">
+    <button class="back-btn" onclick="goToStep('step-method')">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Back
+    </button>
+    <p class="step-label">Select your country</p>
+
+    <button class="country-btn nigeria" onclick="selectCountry(true)">
+      <span>Nigeria</span>
+      <span class="naira-tag">Pay in &#8358; Naira</span>
+    </button>
+    <button class="country-btn" onclick="selectCountry(false)">United States</button>
+    <button class="country-btn" onclick="selectCountry(false)">United Kingdom</button>
+    <button class="country-btn" onclick="selectCountry(false)">Canada</button>
+    <button class="country-btn" onclick="selectCountry(false)">Ghana</button>
+    <button class="country-btn" onclick="selectCountry(false)">Kenya</button>
+    <button class="country-btn" onclick="selectCountry(false)">South Africa</button>
+    <button class="country-btn" onclick="selectCountry(false)">India</button>
+    <button class="country-btn" onclick="selectCountry(false)">Germany</button>
+    <button class="country-btn" onclick="selectCountry(false)">France</button>
+    <button class="country-btn" onclick="selectCountry(false)">Australia</button>
+    <button class="country-btn" onclick="selectCountry(false)">Other</button>
+  </div>
+
+  <!-- STEP 3: Plan -->
+  <div class="step" id="step-plan">
+    <button class="back-btn" onclick="goToStep('step-country')">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Back
+    </button>
+    <p class="step-label">Choose a plan</p>
+
+    <div id="plan-weekly" class="plan-card" onclick="selectPlan('weekly')">
+      <div class="plan-card-left">
+        <h4>Weekly</h4>
+        <p id="plan-weekly-sub">≈ $0.99</p>
+      </div>
+      <div class="plan-price">
+        <div class="amount" id="plan-weekly-price">$0.99</div>
+        <div class="per">per week</div>
+      </div>
+    </div>
+
+    <div id="plan-monthly" class="plan-card selected" onclick="selectPlan('monthly')">
+      <div class="plan-card-left">
+        <h4>Monthly <span class="plan-badge popular">POPULAR</span></h4>
+        <p id="plan-monthly-sub">≈ $1.99</p>
+      </div>
+      <div class="plan-price">
+        <div class="amount selected" id="plan-monthly-price">$1.99</div>
+        <div class="per">per month</div>
+      </div>
+    </div>
+
+    <div id="plan-yearly" class="plan-card" onclick="selectPlan('yearly')">
+      <div class="plan-card-left">
+        <h4>Yearly <span class="plan-badge save">SAVE 25%</span></h4>
+        <p id="plan-yearly-sub">≈ $9.99</p>
+      </div>
+      <div class="plan-price">
+        <div class="amount" id="plan-yearly-price">$9.99</div>
+        <div class="per">per year</div>
+      </div>
+    </div>
+
+    <button class="continue-btn" onclick="goToStep('step-details')">Continue &rarr;</button>
+  </div>
+
+  <!-- STEP 4: Details -->
+  <div class="step" id="step-details">
+    <button class="back-btn" onclick="goToStep('step-plan')">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Back
+    </button>
+
+    <div class="order-summary">
+      <span id="summary-label">ProxySocket Monthly</span>
+      <strong id="summary-price">$1.99</strong>
+    </div>
+
+    <p class="step-label" style="text-align:left;margin-bottom:16px;">Enter your email to receive your license key</p>
+
+    <div class="mb12"><input type="email" id="email" placeholder="Email address *"></div>
+
+    <p class="error-msg" id="error-msg" style="display:none;"></p>
+
+    <button class="btn-primary" id="pay-btn" onclick="handlePay()">
+      <span id="pay-btn-text">Pay $1.99</span>
+      <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </button>
+    <p class="btn-note">Redirects to Pocketfi's secure payment page</p>
+  </div>
+
+  <!-- STEP 5: Processing -->
+  <div class="step" id="step-processing">
+    <div class="spinner-wrap">
+      <div class="spinner"></div>
+      <p style="color:var(--text-muted);">Redirecting to payment...</p>
+      <p style="font-size:12px;color:var(--text-dim);margin-top:6px;">Please wait</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const PLANS = {
+    weekly:  { usd: '$0.99',  naira: '&#8358;1,500',  label: 'Weekly' },
+    monthly: { usd: '$1.99',  naira: '&#8358;5,000',  label: 'Monthly' },
+    yearly:  { usd: '$9.99',  naira: '&#8358;45,000', label: 'Yearly' },
+  }
+
+  let isNigeria = false
+  let selectedPlan = 'monthly'
+
+  function goToStep(id) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'))
+    document.getElementById(id).classList.add('active')
+  }
+
+  function selectCountry(nigeria) {
+    isNigeria = nigeria
+    updatePlanPrices()
+    goToStep('step-plan')
+  }
+
+  function updatePlanPrices() {
+    Object.entries(PLANS).forEach(([id, p]) => {
+      const price = isNigeria ? p.naira : p.usd
+      document.getElementById('plan-' + id + '-price').innerHTML = price
+      if (isNigeria) {
+        document.getElementById('plan-' + id + '-sub').textContent = '≈ ' + p.usd
+        document.getElementById('plan-' + id + '-sub').style.display = 'block'
+      } else {
+        document.getElementById('plan-' + id + '-sub').style.display = 'none'
+      }
+    })
+    updateSummary()
+  }
+
+  function selectPlan(plan) {
+    selectedPlan = plan
+    document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'))
+    document.querySelectorAll('.plan-price .amount').forEach(a => a.classList.remove('selected'))
+    document.getElementById('plan-' + plan).classList.add('selected')
+    document.getElementById('plan-' + plan + '-price').classList.add('selected')
+    updateSummary()
+  }
+
+  function updateSummary() {
+    const p = PLANS[selectedPlan]
+    document.getElementById('summary-label').textContent = 'ProxySocket ' + p.label
+    document.getElementById('summary-price').innerHTML = isNigeria ? p.naira : p.usd
+    const btnPrice = isNigeria ? p.naira : p.usd
+    document.getElementById('pay-btn-text').innerHTML = 'Pay ' + btnPrice
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg')
+    el.textContent = msg
+    el.style.display = 'block'
+  }
+
+  function hideError() {
+    document.getElementById('error-msg').style.display = 'none'
+  }
+
+  async function handlePay() {
+    hideError()
+    const email = document.getElementById('email').value.trim()
+
+    if (!email || !email.includes('@')) { showError('Valid email is required'); return }
+
+    const btn = document.getElementById('pay-btn')
+    btn.disabled = true
+    btn.querySelector('#pay-btn-text').textContent = 'Processing...'
+    goToStep('step-processing')
+
+    try {
+      const res = await fetch('/api/payment/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: selectedPlan, email }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        goToStep('step-details')
+        btn.disabled = false
+        updateSummary()
+        showError(data.error || 'Payment failed. Please try again.')
+        return
+      }
+
+      const url = data?.data?.link || data?.link || data?.payment_url || data?.url
+      if (url) {
+        window.location.href = url
+      } else {
+        goToStep('step-details')
+        btn.disabled = false
+        updateSummary()
+        showError('Could not get payment link. Please try again.')
+      }
+    } catch {
+      goToStep('step-details')
+      btn.disabled = false
+      updateSummary()
+      showError('Network error. Please check your connection.')
+    }
+  }
+
+  updateSummary()
+</script>
+</body>
+</html>

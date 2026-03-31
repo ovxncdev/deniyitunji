@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProxySocket — Payment Confirmed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #111318; --bg-card: #181c24; --accent: #5dcaa5;
+    --accent-dim: rgba(93,202,165,0.12); --accent-border: rgba(93,202,165,0.35);
+    --border: rgba(255,255,255,0.08); --text: #f0f0f0;
+    --text-muted: rgba(255,255,255,0.45); --text-dim: rgba(255,255,255,0.25);
+    --green: #4ade80; --green-dim: rgba(74,222,128,0.1); --green-border: rgba(74,222,128,0.35);
+    --radius: 14px; --radius-sm: 10px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Geist', system-ui, sans-serif; font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; min-height: 100vh; display: flex; flex-direction: column; }
+  a { color: inherit; text-decoration: none; }
+
+  nav { display: flex; align-items: center; padding: 18px 24px; border-bottom: 1px solid var(--border); }
+  .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; }
+  .nav-logo-icon { width: 32px; height: 32px; border-radius: 9px; background: var(--accent-dim); border: 1px solid var(--accent-border); display: flex; align-items: center; justify-content: center; }
+  .nav-logo-icon svg { width: 15px; height: 15px; stroke: var(--accent); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  .container { max-width: 440px; margin: 0 auto; padding: 48px 24px 80px; width: 100%; }
+
+  /* Loading */
+  .spinner-wrap { text-align: center; padding: 60px 0; }
+  .spinner { width: 48px; height: 48px; border: 2px solid rgba(93,202,165,0.15); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner-wrap h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+  .spinner-wrap p { font-size: 14px; color: var(--text-muted); }
+
+  /* Success */
+  .success-wrap { animation: fadeUp .5s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  .success-icon { width: 64px; height: 64px; border-radius: 50%; background: var(--green-dim); border: 1px solid var(--green-border); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+  .success-icon svg { width: 28px; height: 28px; stroke: var(--green); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .success-wrap h2 { font-size: 28px; font-weight: 700; text-align: center; margin-bottom: 8px; }
+  .success-wrap .sub { font-size: 14px; color: var(--text-muted); text-align: center; line-height: 1.65; margin-bottom: 32px; }
+
+  /* Key box */
+  .key-box { background: var(--bg-card); border: 1.5px solid var(--green-border); border-radius: var(--radius); padding: 22px 24px; margin-bottom: 14px; }
+  .key-label { font-size: 11px; color: var(--text-dim); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; text-align: center; }
+  .key-value { font-family: 'Courier New', monospace; font-size: 22px; font-weight: 700; letter-spacing: 3px; color: var(--green); text-align: center; margin-bottom: 16px; word-break: break-all; }
+  .copy-btn { width: 100%; padding: 11px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text-muted); font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 7px; transition: all .15s; }
+  .copy-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+  .copy-btn.copied { border-color: var(--green-border); background: var(--green-dim); color: var(--green); }
+  .copy-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .email-note { text-align: center; font-size: 12px; color: var(--text-dim); margin-bottom: 24px; }
+  .email-note svg { width: 12px; height: 12px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: middle; margin-right: 4px; }
+
+  /* Steps */
+  .steps-box { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 24px; }
+  .steps-title { font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 14px; }
+  .step-item { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+  .step-item:last-child { margin-bottom: 0; }
+  .step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #000; font-weight: 700; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .step-text { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+  .download-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 15px; background: var(--accent); color: #000; font-weight: 700; font-size: 15px; font-weight: 600; border: none; border-radius: var(--radius); cursor: pointer; font-family: inherit; text-decoration: none; margin-bottom: 12px; transition: opacity .15s; }
+  .download-btn:hover { opacity: 0.88; }
+  .download-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .footer-note { text-align: center; font-size: 12px; color: var(--text-dim); }
+  .footer-note a { color: var(--accent); }
+
+  /* Error */
+  .error-wrap { text-align: center; padding: 48px 0; animation: fadeUp .3s ease; }
+  .error-icon { width: 56px; height: 56px; border-radius: 50%; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+  .error-icon svg { width: 24px; height: 24px; stroke: #f87171; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .error-wrap h2 { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+  .error-wrap p { font-size: 14px; color: var(--text-muted); line-height: 1.65; }
+
+  #loading { display: block; }
+  #success { display: none; }
+  #error { display: none; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/proxysocket" class="nav-logo">
+    <div class="nav-logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    </div>
+    ProxySocket
+  </a>
+</nav>
+
+<div class="container">
+
+  <!-- Loading -->
+  <div id="loading">
+    <div class="spinner-wrap">
+      <div class="spinner"></div>
+      <h2>Confirming payment...</h2>
+      <p>Generating your license key. This takes a few seconds.</p>
+    </div>
+  </div>
+
+  <!-- Success -->
+  <div id="success">
+    <div class="success-wrap">
+      <div class="success-icon">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h2>Payment confirmed!</h2>
+      <p class="sub">Your <span id="plan-name">monthly</span> license key is ready.<br>Copy it and enter it in the ProxySocket app.</p>
+
+      <div class="key-box">
+        <p class="key-label">Your License Key</p>
+        <p class="key-value" id="license-key">PSK-XXXX-XXXX-XXXX</p>
+        <button class="copy-btn" id="copy-btn" onclick="copyKey()">
+          <svg id="copy-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span id="copy-text">Copy key</span>
+        </button>
+      </div>
+
+      <p class="email-note">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        Key also sent to your email
+      </p>
+
+      <div class="steps-box">
+        <p class="steps-title">How to activate:</p>
+        <div class="step-item"><div class="step-num">1</div><p class="step-text">Open the ProxySocket app</p></div>
+        <div class="step-item"><div class="step-num">2</div><p class="step-text">Tap "I have a license key"</p></div>
+        <div class="step-item"><div class="step-num">3</div><p class="step-text">Paste your key above</p></div>
+        <div class="step-item"><div class="step-num">4</div><p class="step-text">Tap Activate — you're in!</p></div>
+      </div>
+
+      <a href="https://apps.apple.com" class="download-btn">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Download ProxySocket
+      </a>
+
+      <p class="footer-note">Keep this key safe &middot; Need help? <a href="mailto:hello@deniyitunji.com">hello@deniyitunji.com</a></p>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div id="error">
+    <div class="error-wrap">
+      <div class="error-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <h2>Still processing</h2>
+      <p id="error-text">Payment is being processed. Check your email or contact <a href="mailto:hello@deniyitunji.com" style="color:var(--accent);">hello@deniyitunji.com</a></p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function getRef() {
+    const p = new URLSearchParams(window.location.search)
+    return p.get('reference') || p.get('ref') || p.get('payment_id') || ''
+  }
+
+  function show(id) {
+    ['loading','success','error'].forEach(s => document.getElementById(s).style.display = 'none')
+    document.getElementById(id).style.display = 'block'
+  }
+
+  function copyKey() {
+    const key = document.getElementById('license-key').textContent
+    navigator.clipboard.writeText(key).then(() => {
+      const btn = document.getElementById('copy-btn')
+      const icon = document.getElementById('copy-icon')
+      const text = document.getElementById('copy-text')
+      btn.classList.add('copied')
+      icon.innerHTML = '<polyline points="20 6 9 17 4 12"/>'
+      text.textContent = 'Copied!'
+      setTimeout(() => {
+        btn.classList.remove('copied')
+        icon.innerHTML = '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
+        text.textContent = 'Copy key'
+      }, 2500)
+    })
+  }
+
+  let attempts = 0
+  const MAX_ATTEMPTS = 12
+
+  async function poll() {
+    const ref = getRef()
+    if (!ref) {
+      show('error')
+      document.getElementById('error-text').innerHTML = 'No payment reference found. Contact <a href="mailto:hello@deniyitunji.com" style="color:var(--accent);">hello@deniyitunji.com</a>'
+      return
+    }
+
+    try {
+      const res = await fetch('/api/payment/status?ref=' + encodeURIComponent(ref))
+      const data = await res.json()
+
+      if (data.licenseKey) {
+        document.getElementById('license-key').textContent = data.licenseKey
+        document.getElementById('plan-name').textContent = data.plan || 'monthly'
+        show('success')
+        return
+      }
+    } catch {}
+
+    attempts++
+    if (attempts < MAX_ATTEMPTS) {
+      setTimeout(poll, 5000)
+    } else {
+      show('error')
+      document.getElementById('error-text').innerHTML =
+        'Payment is still processing. Your license key will be emailed to you, or contact <a href="mailto:hello@deniyitunji.com" style="color:var(--accent);">hello@deniyitunji.com</a> with reference: ' + getRef()
+    }
+  }
+
+  poll()
+</script>
+</body>
+</html>
