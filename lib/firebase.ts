@@ -3,14 +3,18 @@ import { getFirestore } from 'firebase-admin/firestore'
 
 if (!getApps().length) {
   const rawKey = process.env.FIREBASE_PRIVATE_KEY || ''
-  const privateKey = rawKey
-    .replace(/\\n/g, '\n')
-    .replace(/^"|"$/g, '')
+  
+  let privateKey = rawKey
+    .replace(/\\n/g, '\n')  // literal \n to newline
+    .replace(/^"|"$/g, '')   // remove surrounding quotes
 
-  console.log('Firebase key starts:', privateKey.substring(0, 50))
-  console.log('Firebase key ends:', privateKey.substring(privateKey.length - 30))
-  console.log('Firebase project:', process.env.FIREBASE_PROJECT_ID)
-  console.log('Firebase email:', process.env.FIREBASE_CLIENT_EMAIL)
+  // If newlines still missing, the key uses spaces — fix it
+  if (!privateKey.includes('\n')) {
+    privateKey = privateKey
+      .replace('-----BEGIN PRIVATE KEY----- ', '-----BEGIN PRIVATE KEY-----\n')
+      .replace(' -----END PRIVATE KEY-----', '\n-----END PRIVATE KEY-----')
+      .replace(/ /g, '\n')
+  }
 
   initializeApp({
     credential: cert({
