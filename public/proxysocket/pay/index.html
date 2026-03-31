@@ -365,7 +365,7 @@
         return
       }
 
-      const url = data?.data?.link || data?.link || data?.payment_url || data?.url
+      const url = data?.payment_link || data?.data?.link || data?.link || data?.payment_url || data?.url
       if (url) {
         window.location.href = url
       } else {
