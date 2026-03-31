@@ -158,7 +158,8 @@
 <script>
   function getRef() {
     const p = new URLSearchParams(window.location.search)
-    return p.get('reference') || p.get('ref') || p.get('payment_id') || ''
+    return p.get('reference') || p.get('ref') || p.get('payment_id') 
+      || localStorage.getItem('psk_payment_id') || ''
   }
 
   function show(id) {
@@ -199,6 +200,7 @@
       const data = await res.json()
 
       if (data.licenseKey) {
+        localStorage.removeItem('psk_payment_id')
         document.getElementById('license-key').textContent = data.licenseKey
         document.getElementById('plan-name').textContent = data.plan || 'monthly'
         show('success')
