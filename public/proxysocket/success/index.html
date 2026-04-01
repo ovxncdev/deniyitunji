@@ -98,7 +98,7 @@
     <div class="spinner-wrap">
       <div class="spinner"></div>
       <h2>Confirming payment...</h2>
-      <p>Generating your license key. This takes a few seconds.</p>
+      <p id="loading-status">Generating your license key. This takes a few seconds.</p>
     </div>
   </div>
 
@@ -153,6 +153,21 @@
     </div>
   </div>
 
+  <!-- Cancelled -->
+  <div id="cancelled" style="display:none;">
+    <div class="error-wrap">
+      <div class="error-icon" style="background:rgba(251,191,36,0.1);border-color:rgba(251,191,36,0.3);">
+        <svg viewBox="0 0 24 24" style="stroke:#fbbf24;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+      <h2>Payment cancelled</h2>
+      <p>You cancelled the payment. If this was a mistake, you can try again or use the redeem page if you did pay.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:24px;">
+        <a href="/proxysocket/pay" style="display:block;padding:13px;background:var(--accent);color:#000;font-weight:700;border-radius:12px;text-align:center;text-decoration:none;">Try again</a>
+        <a href="/proxysocket/redeem" style="display:block;padding:13px;background:rgba(255,255,255,0.05);color:var(--text-muted);border:1px solid var(--border);border-radius:12px;text-align:center;text-decoration:none;">Redeem a key</a>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -164,7 +179,10 @@
   }
 
   function show(id) {
-    ['loading','success','error'].forEach(s => document.getElementById(s).style.display = 'none')
+    ['loading','success','error','cancelled'].forEach(s => {
+      const el = document.getElementById(s)
+      if (el) el.style.display = 'none'
+    })
     document.getElementById(id).style.display = 'block'
   }
 
@@ -186,13 +204,13 @@
   }
 
   let attempts = 0
-  const MAX_ATTEMPTS = 12
+  const MAX_ATTEMPTS = 6
 
   async function poll() {
     const ref = getRef()
     if (!ref) {
       show('error')
-      document.getElementById('error-text').innerHTML = 'No payment reference found. Contact <a href="mailto:hello@deniyitunji.com" style="color:var(--accent);">hello@deniyitunji.com</a>'
+      document.getElementById('error-text').innerHTML = 'No payment reference found. <a href="/proxysocket/redeem" style="color:var(--accent);">Try the redeem page</a> or contact <a href="mailto:hello@deniyitunji.com" style="color:var(--accent);">hello@deniyitunji.com</a>'
       return
     }
 
@@ -200,6 +218,7 @@
       const res = await fetch('/api/payment/status?ref=' + encodeURIComponent(ref))
       const data = await res.json()
 
+      // Payment confirmed — show key
       if (data.licenseKey) {
         sessionStorage.removeItem('psk_payment_id')
         localStorage.removeItem('psk_payment_id')
@@ -208,15 +227,35 @@
         show('success')
         return
       }
-    } catch {}
 
-    attempts++
-    if (attempts < MAX_ATTEMPTS) {
-      setTimeout(poll, 5000)
-    } else {
-      show('error')
-      document.getElementById('error-text').innerHTML =
-        'Payment is still processing. Your license key will be emailed to you, or contact <a href="mailto:hello@deniyitunji.com" style="color:var(--accent);">hello@deniyitunji.com</a> with reference: ' + getRef()
+      // Cancelled or failed — show immediately, don't keep polling
+      const status = (data?.status || '').toLowerCase()
+      if (status === 'cancelled' || status === 'failed' || status === 'expired' || status === 'cancel') {
+        show('cancelled')
+        return
+      }
+
+      // Still pending — poll a few more times
+      attempts++
+      if (attempts < MAX_ATTEMPTS) {
+        setTimeout(poll, 5000)
+      } else {
+        // Timed out — show helpful message
+        show('error')
+        document.getElementById('error-text').innerHTML =
+          'Payment is taking longer than usual. If you completed the transfer, ' +
+          '<a href="/proxysocket/redeem" style="color:var(--accent);">check the redeem page</a> ' +
+          'with reference: <strong>' + ref + '</strong> or contact ' +
+          '<a href="mailto:hello@deniyitunji.com" style="color:var(--accent);">hello@deniyitunji.com</a>'
+      }
+    } catch {
+      attempts++
+      if (attempts < MAX_ATTEMPTS) {
+        setTimeout(poll, 5000)
+      } else {
+        show('error')
+        document.getElementById('error-text').innerHTML = 'Network error. <a href="/proxysocket/redeem" style="color:var(--accent);">Try the redeem page</a>'
+      }
     }
   }
 
