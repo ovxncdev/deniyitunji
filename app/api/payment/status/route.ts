@@ -14,8 +14,14 @@ const AMOUNT_TO_PLAN: Record<number, string> = {
   45000: 'yearly',
 }
 
+// USD equivalent per plan (for unified reporting)
+const PLAN_USD: Record<string, number> = {
+  weekly: 0.99,
+  monthly: 1.99,
+  yearly: 9.99,
+}
+
 function isCryptoRef(ref: string): boolean {
-  // NOWPayments IDs are numeric or short alphanumeric, not PFI| prefixed
   return !ref.startsWith('PFI|') && !ref.startsWith('PFI%7C')
 }
 
@@ -133,11 +139,14 @@ async function generateAndSaveLicense(paymentId: string, plan: string, provider:
 
   await db.collection('payments').doc(paymentId).set({
     reference: paymentId,
-    amount,
+    provider,
+    platform: 'web',
     plan,
+    amountLocal: amount,
+    amountUSD: PLAN_USD[plan] || amount,
+    currencyLocal: provider === 'pocketfi' ? 'NGN' : 'USD',
     licenseKey,
     email: email || null,
-    provider,
     processedAt: new Date().toISOString(),
   })
 

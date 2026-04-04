@@ -38,13 +38,26 @@ export async function GET(req: NextRequest) {
       const licenses = licSnap.docs.map(d => d.data())
       const active = licenses.filter(l => new Date(l.expiresAt) > now).length
       const expired = licenses.length - active
-      const revenue = paySnap.docs.reduce((sum, d) => sum + (parseFloat(d.data().amount) || 0), 0)
+      const payments = paySnap.docs.map(d => d.data())
+      const nairaRevenue = payments.filter(p => p.currencyLocal === 'NGN' || (!p.provider || p.provider === 'pocketfi')).reduce((sum, p) => sum + (parseFloat(p.amountLocal || p.amount) || 0), 0)
+      const usdRevenue = payments.filter(p => p.provider === 'nowpayments').reduce((sum, p) => sum + (parseFloat(p.amountLocal || p.amount) || 0), 0)
+      const inAppRevenue = payments.filter(p => p.provider === 'revenuecat').reduce((sum, p) => sum + (parseFloat(p.amountUSD) || 0), 0)
+      const totalUSD = payments.reduce((sum, p) => sum + (parseFloat(p.amountUSD) || 0), 0)
+      const byPlatform = {
+        web: payments.filter(p => p.platform === 'web').length,
+        ios: payments.filter(p => p.platform === 'ios').length,
+        android: payments.filter(p => p.platform === 'android').length,
+      }
       return NextResponse.json({
         totalLicenses: licenses.length,
         activeLicenses: active,
         expiredLicenses: expired,
         totalPayments: paySnap.size,
-        totalRevenue: revenue.toFixed(2),
+        nairaRevenue: nairaRevenue.toFixed(2),
+        usdRevenue: usdRevenue.toFixed(2),
+        inAppRevenue: inAppRevenue.toFixed(2),
+        totalUSD: totalUSD.toFixed(2),
+        byPlatform,
       })
     }
 
