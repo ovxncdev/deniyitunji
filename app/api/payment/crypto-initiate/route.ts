@@ -5,9 +5,9 @@ const NOWPAYMENTS_API = 'https://api.nowpayments.io/v1'
 const API_KEY = process.env.NOWPAYMENTS_API_KEY!
 
 const PLAN_AMOUNTS: Record<string, string> = {
-  weekly: '0.99',
-  monthly: '1.99',
-  yearly: '9.99',
+  weekly: '1.50',
+  monthly: '3.99',
+  yearly: '14.99',
 }
 
 const PLAN_LABELS: Record<string, string> = {
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       order_id: orderId,
       order_description: PLAN_LABELS[plan],
       success_url: successUrl,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/proxysocket/pay`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/proxysocket/pay?cancelled=1`,
       ipn_callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/payment/crypto-webhook`,
     }
 
