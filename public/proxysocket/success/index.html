@@ -228,9 +228,12 @@
         return
       }
 
-      // Cancelled or failed — show immediately, don't keep polling
+      // Cancelled/failed/expired — clear storage and stop polling
       const status = (data?.status || '').toLowerCase()
-      if (status === 'cancelled' || status === 'failed' || status === 'expired' || status === 'cancel') {
+      if (data.cancelled || status === 'cancelled' || status === 'failed' ||
+          status === 'expired' || status === 'cancel' || status === 'refunded') {
+        sessionStorage.removeItem('psk_payment_id')
+        localStorage.removeItem('psk_payment_id')
         show('cancelled')
         return
       }
@@ -238,15 +241,18 @@
       // Still pending — poll a few more times
       attempts++
       if (attempts < MAX_ATTEMPTS) {
+        const loadingP = document.querySelector('#loading p')
+        if (loadingP) loadingP.textContent = 'Confirming payment... (' + attempts + '/' + MAX_ATTEMPTS + ')'
         setTimeout(poll, 5000)
       } else {
-        // Timed out — show helpful message
+        // Timed out — clear storage, show helpful message
+        sessionStorage.removeItem('psk_payment_id')
+        localStorage.removeItem('psk_payment_id')
         show('error')
         document.getElementById('error-text').innerHTML =
-          'Payment is taking longer than usual. If you completed the transfer, ' +
-          '<a href="/proxysocket/redeem" style="color:var(--accent);">check the redeem page</a> ' +
-          'with reference: <strong>' + ref + '</strong> or contact ' +
-          '<a href="mailto:hello@deniyitunji.com" style="color:var(--accent);">hello@deniyitunji.com</a>'
+          'Payment is taking longer than expected. If you completed the transfer:<br><br>' +
+          '&bull; <a href="/proxysocket/redeem" style="color:var(--accent);">Check the redeem page</a> with reference: <strong>' + ref + '</strong><br><br>' +
+          '&bull; Or contact <a href="mailto:hello@deniyitunji.com" style="color:var(--accent);">hello@deniyitunji.com</a>'
       }
     } catch {
       attempts++

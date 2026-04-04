@@ -1,0 +1,118 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/firebase'
+import { createLicense } from '@/lib/licenseKeys'
+import { sendLicenseKeyEmail } from '@/lib/mailer'
+
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD!
+
+// Verify admin password from header
+function isAuthorized(req: NextRequest): boolean {
+  const auth = req.headers.get('x-admin-key')
+  return auth === ADMIN_PASSWORD
+}
+
+export async function GET(req: NextRequest) {
+  if (!isAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const action = req.nextUrl.searchParams.get('action')
+
+  try {
+    if (action === 'licenses') {
+      const snap = await db.collection('licenses').orderBy('createdAt', 'desc').limit(100).get()
+      const licenses = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      return NextResponse.json({ licenses })
+    }
+
+    if (action === 'payments') {
+      const snap = await db.collection('payments').orderBy('processedAt', 'desc').limit(100).get()
+      const payments = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      return NextResponse.json({ payments })
+    }
+
+    if (action === 'stats') {
+      const [licSnap, paySnap] = await Promise.all([
+        db.collection('licenses').get(),
+        db.collection('payments').get(),
+      ])
+      const now = new Date()
+      const licenses = licSnap.docs.map(d => d.data())
+      const active = licenses.filter(l => new Date(l.expiresAt) > now).length
+      const expired = licenses.length - active
+      const revenue = paySnap.docs.reduce((sum, d) => sum + (parseFloat(d.data().amount) || 0), 0)
+      return NextResponse.json({
+        totalLicenses: licenses.length,
+        activeLicenses: active,
+        expiredLicenses: expired,
+        totalPayments: paySnap.size,
+        totalRevenue: revenue.toFixed(2),
+      })
+    }
+
+    return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  } catch (err) {
+    console.error('Admin GET error:', err)
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+  }
+}
+
+export async function POST(req: NextRequest) {
+  if (!isAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  try {
+    const body = await req.json()
+    const { action } = body
+
+    // Generate license key manually
+    if (action === 'generate') {
+      const { email, plan, sendEmail } = body
+      if (!email || !plan) return NextResponse.json({ error: 'Email and plan required' }, { status: 400 })
+
+      const licenseKey = await createLicense({ plan, reference: `manual-${Date.now()}`, amount: 0, email })
+
+      const durations: Record<string, number> = { weekly: 7, monthly: 30, yearly: 365 }
+      const expiresAt = new Date()
+      expiresAt.setDate(expiresAt.getDate() + (durations[plan] || 30))
+
+      if (sendEmail) {
+        await sendLicenseKeyEmail({ to: email, firstName: email.split('@')[0], licenseKey, plan, expiresAt: expiresAt.toISOString() })
+      }
+
+      return NextResponse.json({ licenseKey, expiresAt: expiresAt.toISOString() })
+    }
+
+    // Revoke license key
+    if (action === 'revoke') {
+      const { key } = body
+      await db.collection('licenses').doc(key).update({ expiresAt: new Date().toISOString() })
+      return NextResponse.json({ success: true })
+    }
+
+    // Extend license key
+    if (action === 'extend') {
+      const { key, days } = body
+      const doc = await db.collection('licenses').doc(key).get()
+      if (!doc.exists) return NextResponse.json({ error: 'Key not found' }, { status: 404 })
+      const current = new Date(doc.data()!.expiresAt)
+      const newExpiry = new Date(Math.max(current.getTime(), Date.now()))
+      newExpiry.setDate(newExpiry.getDate() + (days || 30))
+      await db.collection('licenses').doc(key).update({ expiresAt: newExpiry.toISOString() })
+      return NextResponse.json({ newExpiry: newExpiry.toISOString() })
+    }
+
+    // Send email with existing key
+    if (action === 'resend') {
+      const { key } = body
+      const doc = await db.collection('licenses').doc(key).get()
+      if (!doc.exists) return NextResponse.json({ error: 'Key not found' }, { status: 404 })
+      const data = doc.data()!
+      if (!data.email) return NextResponse.json({ error: 'No email on record' }, { status: 400 })
+      await sendLicenseKeyEmail({ to: data.email, firstName: data.email.split('@')[0], licenseKey: key, plan: data.plan, expiresAt: data.expiresAt })
+      return NextResponse.json({ success: true })
+    }
+
+    return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  } catch (err) {
+    console.error('Admin POST error:', err)
+    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+  }
+}
