@@ -8,11 +8,9 @@ export async function GET(req: NextRequest) {
   try {
     // Lookup by payment reference
     if (ref) {
-      // Check payments collection first
       const paymentDoc = await db.collection('payments').doc(ref).get()
       if (paymentDoc.exists) {
         const p = paymentDoc.data()!
-        // Get the license
         const licenseDoc = await db.collection('licenses').doc(p.licenseKey).get()
         if (licenseDoc.exists) {
           const l = licenseDoc.data()!
@@ -22,6 +20,7 @@ export async function GET(req: NextRequest) {
               plan: l.plan,
               expiresAt: l.expiresAt,
               createdAt: l.createdAt,
+              devices: l.devices || {},
             }]
           })
         }
@@ -46,6 +45,7 @@ export async function GET(req: NextRequest) {
         plan: d.plan,
         expiresAt: d.expiresAt,
         createdAt: d.createdAt,
+        devices: d.devices || {},
       }
     })
 

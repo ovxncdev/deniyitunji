@@ -145,6 +145,7 @@
     <button class="tab" onclick="showTab('licenses')">License Keys</button>
     <button class="tab" onclick="showTab('payments')">Payments</button>
     <button class="tab" onclick="showTab('generate')">Generate Key</button>
+    <button class="tab" onclick="showTab('pricing')">Pricing</button>
   </nav>
 
   <main>
@@ -252,6 +253,51 @@
           </div>
         </div>
         <div id="bulk-result" style="display:none;margin-top:16px;"></div>
+      </div>
+    </div>
+
+    <!-- Pricing -->
+    <div class="section" id="section-pricing">
+      <div class="section-header">
+        <div class="section-title">Naira Pricing</div>
+      </div>
+
+      <div class="generate-card">
+        <h3>Current prices (USD is fixed, only Naira can be updated)</h3>
+        <div id="current-prices" style="margin-bottom:20px;padding:14px;background:var(--bg-input);border-radius:var(--radius-sm);font-size:13px;line-height:2;">
+          Loading...
+        </div>
+
+        <h3 style="margin-bottom:16px;">Update Naira Prices</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Weekly (₦)</label>
+            <input type="number" id="price-weekly" placeholder="1500">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Monthly (₦)</label>
+            <input type="number" id="price-monthly" placeholder="5000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Yearly (₦)</label>
+            <input type="number" id="price-yearly" placeholder="45000">
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Note (optional — e.g. "Updated due to rate change")</label>
+          <input type="text" id="price-note" placeholder="Reason for price update">
+        </div>
+        <button class="btn btn-primary" style="margin-top:16px;" onclick="updatePricing()">Update Prices</button>
+      </div>
+
+      <div class="generate-card">
+        <h3>USD ↔ NGN Reference</h3>
+        <div style="font-size:13px;color:var(--text-muted);line-height:2;">
+          <div>Weekly: $0.99 USD · set NGN equivalent below</div>
+          <div>Monthly: $1.99 USD · set NGN equivalent below</div>
+          <div>Yearly: $9.99 USD · set NGN equivalent below</div>
+          <div style="margin-top:8px;color:var(--text-dim);font-size:12px;">Crypto prices are fixed in USD. Apple/Google handle their own FX conversion automatically.</div>
+        </div>
       </div>
     </div>
 
@@ -521,9 +567,38 @@
 
   // ── UI helpers ─────────────────────────────────────────────────────────────
   function showTab(tab) {
-    document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['dashboard','licenses','payments','generate'][i] === tab))
+    document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['dashboard','licenses','payments','generate','pricing'][i] === tab))
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'))
     document.getElementById('section-' + tab).classList.add('active')
+    if (tab === 'pricing') loadPricingSection()
+  }
+
+  async function loadPricingSection() {
+    const res = await fetch('/api/pricing')
+    const data = await res.json()
+    document.getElementById('price-weekly').value = data.weekly?.ngn || 1500
+    document.getElementById('price-monthly').value = data.monthly?.ngn || 5000
+    document.getElementById('price-yearly').value = data.yearly?.ngn || 45000
+    document.getElementById('price-note').value = ''
+    const updated = data.updatedAt ? `Last updated: ${new Date(data.updatedAt).toLocaleString()}${data.note ? ' — ' + data.note : ''}` : 'Using default prices'
+    document.getElementById('current-prices').innerHTML = `
+      <div>Weekly: <strong style="color:var(--accent);">₦${(data.weekly?.ngn||1500).toLocaleString()}</strong> = $${data.weekly?.usd||0.99}</div>
+      <div>Monthly: <strong style="color:var(--accent);">₦${(data.monthly?.ngn||5000).toLocaleString()}</strong> = $${data.monthly?.usd||1.99}</div>
+      <div>Yearly: <strong style="color:var(--accent);">₦${(data.yearly?.ngn||45000).toLocaleString()}</strong> = $${data.yearly?.usd||9.99}</div>
+      <div style="margin-top:8px;font-size:12px;color:var(--text-dim);">${updated}</div>
+    `
+  }
+
+  async function updatePricing() {
+    const weekly_ngn = document.getElementById('price-weekly').value
+    const monthly_ngn = document.getElementById('price-monthly').value
+    const yearly_ngn = document.getElementById('price-yearly').value
+    const note = document.getElementById('price-note').value
+    if (!weekly_ngn || !monthly_ngn || !yearly_ngn) { toast('All prices required', 'error'); return }
+    const data = await api('POST', { action: 'pricing', weekly_ngn, monthly_ngn, yearly_ngn, note })
+    if (data.error) { toast(data.error, 'error'); return }
+    toast('Prices updated! Pay page will reflect new prices immediately.', 'success')
+    loadPricingSection()
   }
 
   function closeModal(id) { document.getElementById(id).classList.remove('open') }

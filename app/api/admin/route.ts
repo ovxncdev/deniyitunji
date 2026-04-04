@@ -75,6 +75,19 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { action } = body
 
+    // Update Naira pricing
+    if (action === 'pricing') {
+      const { weekly_ngn, monthly_ngn, yearly_ngn, note } = body
+      await db.collection('config').doc('pricing').set({
+        weekly:  { ngn: parseInt(weekly_ngn),  usd: 0.99  },
+        monthly: { ngn: parseInt(monthly_ngn), usd: 1.99  },
+        yearly:  { ngn: parseInt(yearly_ngn),  usd: 9.99  },
+        updatedAt: new Date().toISOString(),
+        note: note || '',
+      })
+      return NextResponse.json({ success: true })
+    }
+
     // Generate license key manually
     if (action === 'generate') {
       const { email, plan, sendEmail } = body
