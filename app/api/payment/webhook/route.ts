@@ -4,89 +4,96 @@ import { createLicense } from '@/lib/licenseKeys'
 import { db } from '@/lib/firebase'
 import { sendLicenseKeyEmail } from '@/lib/mailer'
 
-const POCKETFI_SECRET = process.env.POCKETFI_WEBHOOK_SECRET!
+const IPN_SECRET = process.env.NOWPAYMENTS_IPN_SECRET!
 
-const AMOUNT_TO_PLAN: Record<number, string> = {
-  1500: 'weekly',
-  5000: 'monthly',
-  45000: 'yearly',
+function verifySignature(payload: string, receivedSig: string): boolean {
+  const hmac = createHmac('sha512', IPN_SECRET)
+  hmac.update(payload)
+  const expectedSig = hmac.digest('hex')
+  return expectedSig === receivedSig
 }
 
 export async function POST(req: NextRequest) {
   try {
     const payload = await req.text()
-    const signature = req.headers.get('HTTP_POCKETFI_SIGNATURE')
-      || req.headers.get('pocketfi-signature')
-      || ''
+    const receivedSig = req.headers.get('x-nowpayments-sig') || ''
 
-    const expectedHash = createHmac('sha512', POCKETFI_SECRET)
-      .update(payload)
-      .digest('hex')
-
-    if (signature !== expectedHash) {
-      console.error('Invalid Pocketfi webhook signature')
-      return NextResponse.json({ message: 'Permission denied, invalid hash' }, { status: 400 })
+    // Verify IPN signature
+    if (!verifySignature(payload, receivedSig)) {
+      console.error('Invalid NOWPayments IPN signature')
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
     const data = JSON.parse(payload)
-    const reference = data?.transaction?.reference
-    const amount = Math.round(parseFloat(data?.order?.amount || '0'))
-    const description = data?.order?.description || ''
+    console.log('NOWPayments webhook:', JSON.stringify(data))
 
-    if (!reference) {
-      return NextResponse.json({ message: 'Missing reference' }, { status: 400 })
+    const status = data.payment_status
+    const paymentId = data.invoice_id?.toString() || data.order_id
+    const orderId = data.order_id
+
+    // Only process finished payments
+    if (status !== 'finished' && status !== 'confirmed') {
+      return NextResponse.json({ message: 'ignored' }, { status: 200 })
     }
 
-    const existing = await db.collection('payments').doc(reference).get()
+    // Prevent duplicate processing
+    const docId = paymentId || orderId
+    const existing = await db.collection('payments').doc(docId).get()
     if (existing.exists) {
       return NextResponse.json({ message: 'success' }, { status: 200 })
     }
 
-    let plan = AMOUNT_TO_PLAN[amount]
-    if (!plan) {
-      if (description.toLowerCase().includes('weekly')) plan = 'weekly'
-      else if (description.toLowerCase().includes('yearly')) plan = 'yearly'
-      else plan = 'monthly'
-    }
+    // Get email and plan from payment_meta
+    const meta = await db.collection('payment_meta').doc(docId).get()
+    const email = meta.exists ? meta.data()?.email : null
+    const plan = meta.exists ? meta.data()?.plan : 'monthly'
 
-    const paymentMeta = await db.collection('payment_meta').doc(reference).get()
-    const email = paymentMeta.exists ? paymentMeta.data()?.email : null
-    const firstName = paymentMeta.exists ? paymentMeta.data()?.firstName : null
-
+    // Generate license key
     const licenseKey = await createLicense({
       plan: plan as any,
-      reference,
-      amount,
+      reference: docId,
+      amount: parseFloat(data.price_amount || '0'),
       email,
     })
 
+    // Expiry
     const durations: Record<string, number> = { weekly: 7, monthly: 30, yearly: 365 }
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + (durations[plan] || 30))
 
-    await db.collection('payments').doc(reference).set({
-      reference, amount, plan, licenseKey,
+    // Save payment
+    await db.collection('payments').doc(docId).set({
+      reference: docId,
+      orderId,
+      amount: data.price_amount,
+      currency: data.price_currency,
+      payCurrency: data.pay_currency,
+      plan,
+      licenseKey,
       email: email || null,
+      provider: 'nowpayments',
       processedAt: new Date().toISOString(),
     })
 
+    // Send email
     if (email) {
       try {
         await sendLicenseKeyEmail({
           to: email,
-          firstName: firstName || '',
+          firstName: email.split('@')[0],
           licenseKey,
           plan,
           expiresAt: expiresAt.toISOString(),
         })
-      } catch (emailErr) {
-        console.error('Failed to send email:', emailErr)
+      } catch (e) {
+        console.error('Email failed:', e)
       }
     }
 
+    console.log(`Crypto license generated: ${licenseKey} for ${docId}`)
     return NextResponse.json({ message: 'success' }, { status: 200 })
   } catch (err) {
-    console.error('Webhook error:', err)
-    return NextResponse.json({ message: 'Internal error' }, { status: 500 })
+    console.error('NOWPayments webhook error:', err)
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

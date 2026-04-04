@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/firebase'
-import { createHash } from 'crypto'
 
-const CRYPTOMUS_API = 'https://api.cryptomus.com/v1'
-const MERCHANT_ID = process.env.CRYPTOMUS_MERCHANT_ID!
-const API_KEY = process.env.CRYPTOMUS_API_KEY!
+const NOWPAYMENTS_API = 'https://api.nowpayments.io/v1'
+const API_KEY = process.env.NOWPAYMENTS_API_KEY!
 
 const PLAN_AMOUNTS: Record<string, string> = {
   weekly: '0.99',
@@ -18,12 +16,6 @@ const PLAN_LABELS: Record<string, string> = {
   yearly: 'ProxySocket Yearly Plan',
 }
 
-function makeSign(body: object): string {
-  const json = JSON.stringify(body)
-  const base64 = Buffer.from(json).toString('base64')
-  return createHash('md5').update(base64 + API_KEY).digest('hex')
-}
-
 export async function POST(req: NextRequest) {
   try {
     const { plan, email } = await req.json()
@@ -33,55 +25,50 @@ export async function POST(req: NextRequest) {
     }
 
     const orderId = `psk-${plan}-${Date.now()}`
-    const amount = PLAN_AMOUNTS[plan]
     const successUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/proxysocket/success`
 
     const body = {
-      amount,
-      currency: 'USD',
+      price_amount: parseFloat(PLAN_AMOUNTS[plan]),
+      price_currency: 'usd',
       order_id: orderId,
-      url_success: successUrl,
-      url_return: `${process.env.NEXT_PUBLIC_BASE_URL}/proxysocket/pay`,
-      url_callback: `${process.env.NEXT_PUBLIC_BASE_URL}/api/payment/crypto-webhook`,
-      lifetime: 3600,
-      additional_data: JSON.stringify({ plan, email }),
+      order_description: PLAN_LABELS[plan],
+      success_url: successUrl,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/proxysocket/pay`,
+      ipn_callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/payment/crypto-webhook`,
     }
 
-    const sign = makeSign(body)
-
-    const res = await fetch(`${CRYPTOMUS_API}/payment`, {
+    const res = await fetch(`${NOWPAYMENTS_API}/invoice`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'merchant': MERCHANT_ID,
-        'sign': sign,
+        'x-api-key': API_KEY,
       },
       body: JSON.stringify(body),
     })
 
     const data = await res.json()
+    console.log('NOWPayments response:', JSON.stringify(data))
 
-    if (data.state !== 0) {
-      console.error('Cryptomus error:', data)
+    if (!res.ok || !data.invoice_url) {
+      console.error('NOWPayments error:', data)
       return NextResponse.json({ error: data.message || 'Payment creation failed' }, { status: 500 })
     }
 
-    const result = data.result
-    const paymentId = result.uuid
+    const paymentId = data.id?.toString() || orderId
 
     // Store email and plan for webhook
-    if (paymentId && email) {
+    if (email) {
       await db.collection('payment_meta').doc(paymentId).set({
         email,
         plan,
         orderId,
-        provider: 'cryptomus',
+        provider: 'nowpayments',
         createdAt: new Date().toISOString(),
       })
     }
 
     return NextResponse.json({
-      payment_link: result.url,
+      payment_link: data.invoice_url,
       payment_id: paymentId,
     })
   } catch (err) {
